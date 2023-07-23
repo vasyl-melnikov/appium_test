@@ -154,3 +154,11 @@ class ApplicationRunner:
             edit_text.send_keys(prompt)
 
             self.driver.press_keycode(Keys.enter)  # clicking enter to start searching
+
+        def click_on_second_found_option(self):
+            elements = self.wait.until(
+                EC.presence_of_all_elements_located(
+                    (MobileBy.ID, UiElements.search_result_object)
+                )
+            )
+            elements[1].click()  # second object in list start is 1 index
