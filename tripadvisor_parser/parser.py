@@ -189,6 +189,24 @@ class TrapAdvisorParser:
             if day.get_attribute("text") == needed_day:
                 return day
 
+    def handle_invalid_date_range(self):
+        try:
+            self.driver.find_element(
+                MobileBy.ID, UiElements.cancel_invalid_date_range_popup
+            )
+        except Exception:
+            return False
+        while True:
+            time.sleep(1)
+            try:
+                btn = self.driver.find_element(
+                    MobileBy.ID, UiElements.cancel_invalid_date_range_popup
+                )
+            except Exception:
+                raise DateRangeIsNotAvailable
+            else:
+                btn.click()
+
     def find_needed_date(
             self, date: datetime.datetime, submit_date: bool = False
     ) -> None:
