@@ -187,3 +187,28 @@ class ApplicationRunner:
             for day in days:
                 if day.get_attribute("text") == needed_day:
                     return day
+
+        def find_needed_date(
+                self, date: datetime.datetime
+        ) -> None:
+            searched_date_frame = f"{calendar.month_name[date.month]} {date.year}"
+            current_month_view = date.month == self.current_date.month
+            if not current_month_view:
+                date_title = self.driver.find_elements(
+                    MobileBy.ID, UiElements.cur_date_title
+                )[-1].text
+                while searched_date_frame != date_title:
+                    self.driver.press_keycode(Keys.arrow_down)
+                    date_title = self.driver.find_elements(
+                        MobileBy.ID, UiElements.cur_date_title
+                    )[-1].text
+
+            needed_day = self._get_needed_day_from_date_view(
+                searched_date_frame, str(date.day), view_without_date=current_month_view
+            )
+            while needed_day is None:
+                self.driver.press_keycode(Keys.arrow_down)
+                needed_day = self._get_needed_day_from_date_view(
+                    searched_date_frame, str(date.day), view_without_date=current_month_view
+                )
+            needed_day.click()
