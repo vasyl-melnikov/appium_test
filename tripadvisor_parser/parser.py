@@ -189,7 +189,7 @@ class ApplicationRunner:
                     return day
 
         def find_needed_date(
-                self, date: datetime.datetime
+                self, date: datetime.datetime, submit_date: bool = False
         ) -> None:
             """
             :param date: needed date to submit
@@ -221,4 +221,19 @@ class ApplicationRunner:
                 needed_day = self._get_needed_day_from_date_view(
                     searched_date_frame, str(date.day), view_without_date=current_month_view
                 )
+
+            if submit_date:
+                needed_day.click()
+            needed_day.click()
+
+            # Handling cases when date is not submitted or error popup appeared
+            search_date = f"{calendar.month_abbr[date.month]} {date.day}"
+            while (
+                    self.handle_invalid_date_range()
+                    or search_date
+                    not in self.driver.find_element(
+                MobileBy.ID, UiElements.date_range_final_date
+            ).get_attribute("text")
+            ):
+                needed_day.click()
 
