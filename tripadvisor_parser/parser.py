@@ -1,7 +1,7 @@
-import calendar
-import datetime
 import time
-from collections import Counter
+import datetime
+import calendar
+
 from typing import Optional
 
 from appium import webdriver
@@ -15,8 +15,9 @@ from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from tripadvisor_parser import NoDealsAvailableForDate, InvalidDate, DateRangeIsNotAvailable
-from ui_elements import UiElements, Keys
+from collections import Counter
+from ui_elements import Keys, UiElements
+from exceptions import NoDealsAvailableForDate, DateRangeIsNotAvailable, InvalidDate
 
 
 class ApplicationRunner:
@@ -68,6 +69,7 @@ class ApplicationRunner:
         self.skip_location_permission_page()
         self.skip_notification_page()
 
+
 class TrapAdvisorParser:
     def __init__(self, driver: webdriver.Remote):
         self.driver = driver
@@ -105,39 +107,23 @@ class TrapAdvisorParser:
         )
         element.click()
 
-    def get_to_all_deals_page(self):
+    def handle_invalid_date_range(self):
         try:
-            btn = self.wait.until(
-                EC.presence_of_element_located(
-                    (MobileBy.ID, UiElements.all_deals_page_btn)
-                )
+            self.driver.find_element(
+                MobileBy.ID, UiElements.cancel_invalid_date_range_popup
             )
         except Exception:
-            raise Exception
-        btn.click()
-
-    def seek_page_to_start(self):
-        processed_titles = Counter()
-        self._repeat_key(Keys.tab, 3)  # Move selector to date view
-
-        date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[
-            -1
-        ].text
-        current_data_frame = (
-            f"{calendar.month_name[self.current_date.month]} {self.current_date.year}"
-        )
-        while date_title != current_data_frame and processed_titles[date_title] <= 5:
-            self.driver.press_keycode(Keys.arrow_up)
-            processed_titles[date_title] += 1
-            date_title = self.driver.find_elements(
-                MobileBy.ID, UiElements.cur_date_title
-            )[-1].text
-
-        self._repeat_key(
-            Keys.arrow_up, 2
-        )  # Move selector a little below to load more data for specific month
-
-        self._repeat_key(Keys.tab, 3)  # Move selector to date view
+            return False
+        while True:
+            time.sleep(1)
+            try:
+                btn = self.driver.find_element(
+                    MobileBy.ID, UiElements.cancel_invalid_date_range_popup
+                )
+            except Exception:
+                raise DateRangeIsNotAvailable
+            else:
+                btn.click()
 
     def search_for_prompt(self, prompt: str):
         edit_text = self.wait.until(
@@ -166,95 +152,16 @@ class TrapAdvisorParser:
         )
         elements[1].click()  # second object in list start is 1 index
 
-    def _get_needed_day_from_date_view(
-            self, search_date_of_view: str, needed_day: str, view_without_date: bool = False
-    ) -> Optional[WebElement]:
-        visible_views = self.driver.find_elements(
-            MobileBy.ID, UiElements.month_view_object
-        )
-        for view in visible_views:
-            try:
-                date_title = view.find_element(MobileBy.ID, UiElements.cur_date_title)
-            except Exception:
-                if view_without_date:
-                    needed_view = view
-                    break
-                continue
-            if date_title.text == search_date_of_view:
-                needed_view = view
-                break
-        days = needed_view.find_elements(MobileBy.ID, UiElements.day_txt)
-
-        for day in days:
-            if day.get_attribute("text") == needed_day:
-                return day
-
-    def handle_invalid_date_range(self):
+    def get_to_all_deals_page(self):
         try:
-            self.driver.find_element(
-                MobileBy.ID, UiElements.cancel_invalid_date_range_popup
+            btn = self.wait.until(
+                EC.presence_of_element_located(
+                    (MobileBy.ID, UiElements.all_deals_page_btn)
+                )
             )
         except Exception:
-            return False
-        while True:
-            time.sleep(1)
-            try:
-                btn = self.driver.find_element(
-                    MobileBy.ID, UiElements.cancel_invalid_date_range_popup
-                )
-            except Exception:
-                raise DateRangeIsNotAvailable
-            else:
-                btn.click()
-
-    def find_needed_date(
-            self, date: datetime.datetime, submit_date: bool = False
-    ) -> None:
-        """
-        :param date: needed date to submit
-        :param submit_date: parameter for submitting day as a first value (clicking twice on day entry)
-        :return: None
-        """
-        if self.current_date > date:
-            raise Exception
-
-        # Trying to find wanted date frame view
-        searched_date_frame = f"{calendar.month_name[date.month]} {date.year}"
-        current_month_view = date.month == self.current_date.month
-        if not current_month_view:
-            date_title = self.driver.find_elements(
-                MobileBy.ID, UiElements.cur_date_title
-            )[-1].text
-            while searched_date_frame != date_title:
-                self.driver.press_keycode(Keys.arrow_down)
-                date_title = self.driver.find_elements(
-                    MobileBy.ID, UiElements.cur_date_title
-                )[-1].text
-
-        # Trying to find wanted day in date frame view
-        needed_day = self._get_needed_day_from_date_view(
-            searched_date_frame, str(date.day), view_without_date=current_month_view
-        )
-        while needed_day is None:
-            self.driver.press_keycode(Keys.arrow_down)
-            needed_day = self._get_needed_day_from_date_view(
-                searched_date_frame, str(date.day), view_without_date=current_month_view
-            )
-
-        if submit_date:
-            needed_day.click()
-        needed_day.click()
-
-        # Handling cases when date is not submitted or error popup appeared
-        search_date = f"{calendar.month_abbr[date.month]} {date.day}"
-        while (
-                self.handle_invalid_date_range()
-                or search_date
-                not in self.driver.find_element(
-            MobileBy.ID, UiElements.date_range_final_date
-        ).get_attribute("text")
-        ):
-            needed_day.click()
+            raise NoDealsAvailableForDate
+        btn.click()
 
     def parse_prices(self) -> dict[str, str]:
         time.sleep(10)  # sleeping 10s for data being loaded
@@ -287,19 +194,102 @@ class TrapAdvisorParser:
             prices[provider_name] = price
         return prices
 
-    def get_to_all_deals_page(self):
-        try:
-            btn = self.wait.until(
-                EC.presence_of_element_located(
-                    (MobileBy.ID, UiElements.all_deals_page_btn)
-                )
-            )
-        except Exception:
-            raise NoDealsAvailableForDate
-        btn.click()
+    def _get_needed_day_from_date_view(
+        self, search_date_of_view: str, needed_day: str, view_without_date: bool = False
+    ) -> Optional[WebElement]:
+        visible_views = self.driver.find_elements(
+            MobileBy.ID, UiElements.month_view_object
+        )
+        for view in visible_views:
+            try:
+                date_title = view.find_element(MobileBy.ID, UiElements.cur_date_title)
+            except Exception:
+                if view_without_date:
+                    needed_view = view
+                    break
+                continue
+            if date_title.text == search_date_of_view:
+                needed_view = view
+                break
+        days = needed_view.find_elements(MobileBy.ID, UiElements.day_txt)
 
-    def launch_app_and_parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> \
-    dict[str, str]:
+        for day in days:
+            if day.get_attribute("text") == needed_day:
+                return day
+
+    def find_needed_date(
+        self, date: datetime.datetime, submit_date: bool = False
+    ) -> None:
+        """
+        :param date: needed date to submit
+        :param submit_date: parameter for submitting day as a first value (clicking twice on day entry)
+        :return: None
+        """
+        if self.current_date > date:
+            raise InvalidDate
+
+        # Trying to find wanted date frame view
+        searched_date_frame = f"{calendar.month_name[date.month]} {date.year}"
+        current_month_view = date.month == self.current_date.month
+        if not current_month_view:
+            date_title = self.driver.find_elements(
+                MobileBy.ID, UiElements.cur_date_title
+            )[-1].text
+            while searched_date_frame != date_title:
+                self.driver.press_keycode(Keys.arrow_down)
+                date_title = self.driver.find_elements(
+                    MobileBy.ID, UiElements.cur_date_title
+                )[-1].text
+
+        # Trying to find wanted day in date frame view
+        needed_day = self._get_needed_day_from_date_view(
+            searched_date_frame, str(date.day), view_without_date=current_month_view
+        )
+        while needed_day is None:
+            self.driver.press_keycode(Keys.arrow_down)
+            needed_day = self._get_needed_day_from_date_view(
+                searched_date_frame, str(date.day), view_without_date=current_month_view
+            )
+
+        if submit_date:
+            needed_day.click()
+        needed_day.click()
+
+        # Handling cases when date is not submitted or error popup appeared
+        search_date = f"{calendar.month_abbr[date.month]} {date.day}"
+        while (
+            self.handle_invalid_date_range()
+            or search_date
+            not in self.driver.find_element(
+                MobileBy.ID, UiElements.date_range_final_date
+            ).get_attribute("text")
+        ):
+            needed_day.click()
+
+    def seek_page_to_start(self):
+        processed_titles = Counter()
+        self._repeat_key(Keys.tab, 3)  # Move selector to date view
+
+        date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[
+            -1
+        ].text
+        current_data_frame = (
+            f"{calendar.month_name[self.current_date.month]} {self.current_date.year}"
+        )
+        while date_title != current_data_frame and processed_titles[date_title] <= 5:
+            self.driver.press_keycode(Keys.arrow_up)
+            processed_titles[date_title] += 1
+            date_title = self.driver.find_elements(
+                MobileBy.ID, UiElements.cur_date_title
+            )[-1].text
+
+        self._repeat_key(
+            Keys.arrow_up, 2
+        )  # Move selector a little below to load more data for specific month
+
+        self._repeat_key(Keys.tab, 3)  # Move selector to date view
+
+    def launch_app_and_parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> dict[str, str]:
         self.__app_runner.launch()
         self.go_to_search_page()
         self.search_for_prompt(prompt)
@@ -310,7 +300,7 @@ class TrapAdvisorParser:
         try:
             self.find_needed_date(start_date, submit_date=True)
             self.find_needed_date(end_date)
-        except Exception:
+        except (InvalidDate, DateRangeIsNotAvailable):
             prices = f"Such date range is not available {start_date} to {end_date}"
             self.confirm_date_range()
             self.reset_search_page()
@@ -319,7 +309,7 @@ class TrapAdvisorParser:
         self.confirm_date_range()
         try:
             self.get_to_all_deals_page()
-        except Exception:
+        except NoDealsAvailableForDate:
             prices = f"Deals for such date range are not available {start_date} to {end_date}"
         else:
             prices = self.parse_prices()
@@ -327,6 +317,6 @@ class TrapAdvisorParser:
         self.reset_search_page()
         return prices
 
-
     def __del__(self):
         self.driver.quit()
+
