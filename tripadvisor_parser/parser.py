@@ -114,12 +114,23 @@ class ApplicationRunner:
 
         def seek_page_to_start(self):
             processed_titles = Counter()
-            self._repeat_key(Keys.tab, 3)
-            date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[-1].text
+            self._repeat_key(Keys.tab, 3)  # Move selector to date view
+
+            date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[
+                -1
+            ].text
             current_data_frame = (
                 f"{calendar.month_name[self.current_date.month]} {self.current_date.year}"
             )
             while date_title != current_data_frame and processed_titles[date_title] <= 5:
                 self.driver.press_keycode(Keys.arrow_up)
                 processed_titles[date_title] += 1
-                date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[-1].text
+                date_title = self.driver.find_elements(
+                    MobileBy.ID, UiElements.cur_date_title
+                )[-1].text
+
+            self._repeat_key(
+                Keys.arrow_up, 2
+            )  # Move selector a little below to load more data for specific month
+
+            self._repeat_key(Keys.tab, 3)  # Move selector to date view
