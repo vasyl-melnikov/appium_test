@@ -15,6 +15,7 @@ from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from tripadvisor_parser import NoDealsAvailableForDate
 from ui_elements import UiElements, Keys
 
 
@@ -267,3 +268,14 @@ class ApplicationRunner:
                 break
             prices[provider_name] = price
         return prices
+
+    def get_to_all_deals_page(self):
+        try:
+            btn = self.wait.until(
+                EC.presence_of_element_located(
+                    (MobileBy.ID, UiElements.all_deals_page_btn)
+                )
+            )
+        except Exception:
+            raise NoDealsAvailableForDate
+        btn.click()
