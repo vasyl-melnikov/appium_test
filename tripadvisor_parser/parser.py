@@ -76,6 +76,7 @@ class TrapAdvisorParser:
         self.wait = WebDriverWait(self.driver, 30)
         self.current_date = datetime.datetime.now()
         self.__app_runner = ApplicationRunner(self.driver)
+        self.__app_runner.launch()
 
     def _repeat_key(self, key, count_of_repetitions: int):
         for _ in range(count_of_repetitions):
@@ -289,8 +290,7 @@ class TrapAdvisorParser:
 
         self._repeat_key(Keys.tab, 3)  # Move selector to date view
 
-    def launch_app_and_parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> dict[str, str]:
-        self.__app_runner.launch()
+    def parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> dict[str, str]:
         self.go_to_search_page()
         self.search_for_prompt(prompt)
         self.click_on_second_found_option()
