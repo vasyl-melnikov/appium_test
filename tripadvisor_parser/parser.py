@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import time
 from collections import Counter
 
 from appium import webdriver
@@ -134,3 +135,22 @@ class ApplicationRunner:
             )  # Move selector a little below to load more data for specific month
 
             self._repeat_key(Keys.tab, 3)  # Move selector to date view
+
+        def search_for_prompt(self, prompt: str):
+            edit_text = self.wait.until(
+                EC.presence_of_element_located(
+                    (MobileBy.ID, UiElements.search_page_edit_prompt)
+                )
+            )
+            edit_text.click()
+
+            time.sleep(1)  # sleeping 1 second for application to process actions
+
+            edit_text = self.wait.until(
+                EC.presence_of_element_located(
+                    (MobileBy.ID, UiElements.search_page_edit_prompt)
+                )
+            )
+            edit_text.send_keys(prompt)
+
+            self.driver.press_keycode(Keys.enter)  # clicking enter to start searching
