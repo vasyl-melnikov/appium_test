@@ -237,3 +237,33 @@ class ApplicationRunner:
             ):
                 needed_day.click()
 
+    def parse_prices(self) -> dict[str, str]:
+        time.sleep(10)  # sleeping 10s for data being loaded
+        prices = {}
+
+        while True:
+            self.driver.press_keycode(Keys.tab)
+            focused_elem = self.driver.switch_to.active_element
+            if (
+                focused_elem.get_attribute("resource-id")
+                != UiElements.hotel_offer_object
+            ):
+                continue
+            try:
+                provider_name = focused_elem.find_element(
+                    MobileBy.ID, UiElements.hotel_offer_provider
+                ).text
+            except Exception:
+                continue
+
+            try:
+                price = focused_elem.find_element(
+                    MobileBy.ID, UiElements.hotel_offer_price
+                ).text
+            except Exception:
+                price = "Not Available"
+
+            if provider_name in prices:  # verifying whether provider is already in prices dict
+                break
+            prices[provider_name] = price
+        return prices
