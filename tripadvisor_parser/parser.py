@@ -2,8 +2,10 @@ import calendar
 import datetime
 import time
 from collections import Counter
+from typing import Optional
 
 from appium import webdriver
+from appium.webdriver import WebElement
 from appium.webdriver.common.mobileby import MobileBy
 
 from selenium.webdriver.common.action_chains import ActionChains
@@ -162,3 +164,26 @@ class ApplicationRunner:
                 )
             )
             elements[1].click()  # second object in list start is 1 index
+
+        def _get_needed_day_from_date_view(
+                self, search_date_of_view: str, needed_day: str, view_without_date: bool = False
+        ) -> Optional[WebElement]:
+            visible_views = self.driver.find_elements(
+                MobileBy.ID, UiElements.month_view_object
+            )
+            for view in visible_views:
+                try:
+                    date_title = view.find_element(MobileBy.ID, UiElements.cur_date_title)
+                except Exception:
+                    if view_without_date:
+                        needed_view = view
+                        break
+                    continue
+                if date_title.text == search_date_of_view:
+                    needed_view = view
+                    break
+            days = needed_view.find_elements(MobileBy.ID, UiElements.day_txt)
+
+            for day in days:
+                if day.get_attribute("text") == needed_day:
+                    return day
