@@ -191,6 +191,15 @@ class ApplicationRunner:
         def find_needed_date(
                 self, date: datetime.datetime
         ) -> None:
+            """
+            :param date: needed date to submit
+            :param submit_date: parameter for submitting day as a first value (clicking twice on day entry)
+            :return: None
+            """
+            if self.current_date > date:
+                raise Exception
+
+            # Trying to find wanted date frame view
             searched_date_frame = f"{calendar.month_name[date.month]} {date.year}"
             current_month_view = date.month == self.current_date.month
             if not current_month_view:
@@ -203,6 +212,7 @@ class ApplicationRunner:
                         MobileBy.ID, UiElements.cur_date_title
                     )[-1].text
 
+            # Trying to find wanted day in date frame view
             needed_day = self._get_needed_day_from_date_view(
                 searched_date_frame, str(date.day), view_without_date=current_month_view
             )
@@ -211,4 +221,4 @@ class ApplicationRunner:
                 needed_day = self._get_needed_day_from_date_view(
                     searched_date_frame, str(date.day), view_without_date=current_month_view
                 )
-            needed_day.click()
+
