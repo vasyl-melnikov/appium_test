@@ -72,3 +72,40 @@ class ApplicationRunner:
         def _repeat_key(self, key, count_of_repetitions: int):
             for _ in range(count_of_repetitions):
                 self.driver.press_keycode(key)
+
+        def confirm_date_range(self):
+            btn = self.driver.find_element(MobileBy.ID, UiElements.confirm_date_range_btn)
+            btn.click()
+
+        def go_to_date_range_page(self):
+            btn = self.wait.until(
+                EC.presence_of_element_located(
+                    (MobileBy.ID, UiElements.date_range_page_btn)
+                )
+            )
+            btn.click()
+
+        def back_form_deals_page(self):
+            btn = self.driver.find_element(MobileBy.ID, UiElements.back_from_deals_page_btn)
+            btn.click()
+
+        def reset_search_page(self):
+            for _ in range(2):
+                self.go_to_search_page()
+
+        def go_to_search_page(self):
+            element = self.wait.until(
+                EC.presence_of_element_located((MobileBy.ID, UiElements.search_page_btn))
+            )
+            element.click()
+
+        def get_to_all_deals_page(self):
+            try:
+                btn = self.wait.until(
+                    EC.presence_of_element_located(
+                        (MobileBy.ID, UiElements.all_deals_page_btn)
+                    )
+                )
+            except Exception:
+                raise Exception
+            btn.click()
