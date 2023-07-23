@@ -280,19 +280,32 @@ class TrapAdvisorParser:
             raise NoDealsAvailableForDate
         btn.click()
 
-    def launch_app_and_parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> dict[str, str]:
+    def launch_app_and_parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> \
+    dict[str, str]:
         self.__app_runner.launch()
         self.go_to_search_page()
         self.search_for_prompt(prompt)
         self.click_on_second_found_option()
         self.go_to_date_range_page()
         self.seek_page_to_start()
-        self.find_needed_date(start_date, submit_date=True)
-        self.find_needed_date(end_date)
+
+        try:
+            self.find_needed_date(start_date, submit_date=True)
+            self.find_needed_date(end_date)
+        except Exception:
+            prices = f"Such date range is not available {start_date} to {end_date}"
+            self.confirm_date_range()
+            self.reset_search_page()
+            return prices
+
         self.confirm_date_range()
-        self.get_to_all_deals_page()
-        prices = self.parse_prices()
-        self.back_form_deals_page()
+        try:
+            self.get_to_all_deals_page()
+        except Exception:
+            prices = f"Deals for such date range are not available {start_date} to {end_date}"
+        else:
+            prices = self.parse_prices()
+            self.back_form_deals_page()
         self.reset_search_page()
         return prices
 
