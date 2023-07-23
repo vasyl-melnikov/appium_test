@@ -1,3 +1,5 @@
+import datetime
+
 from appium import webdriver
 from appium.webdriver.common.mobileby import MobileBy
 
@@ -59,3 +61,10 @@ class ApplicationRunner:
         self.skip_login_page()
         self.skip_location_permission_page()
         self.skip_notification_page()
+
+    class TrapAdvisorParser:
+        def __init__(self, driver: webdriver.Remote):
+            self.driver = driver
+            self.wait = WebDriverWait(self.driver, 30)
+            self.current_date = datetime.datetime.now()
+            self.__app_runner = ApplicationRunner(self.driver)
