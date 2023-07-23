@@ -1,4 +1,6 @@
+import calendar
 import datetime
+from collections import Counter
 
 from appium import webdriver
 from appium.webdriver.common.mobileby import MobileBy
@@ -10,7 +12,7 @@ from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from ui_elements import UiElements
+from ui_elements import UiElements, Keys
 
 
 class ApplicationRunner:
@@ -109,3 +111,15 @@ class ApplicationRunner:
             except Exception:
                 raise Exception
             btn.click()
+
+        def seek_page_to_start(self):
+            processed_titles = Counter()
+            self._repeat_key(Keys.tab, 3)
+            date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[-1].text
+            current_data_frame = (
+                f"{calendar.month_name[self.current_date.month]} {self.current_date.year}"
+            )
+            while date_title != current_data_frame and processed_titles[date_title] <= 5:
+                self.driver.press_keycode(Keys.arrow_up)
+                processed_titles[date_title] += 1
+                date_title = self.driver.find_elements(MobileBy.ID, UiElements.cur_date_title)[-1].text
