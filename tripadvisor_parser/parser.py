@@ -279,3 +279,6 @@ class ApplicationRunner:
         except Exception:
             raise NoDealsAvailableForDate
         btn.click()
+
+    def __del__(self):
+        self.driver.quit()
