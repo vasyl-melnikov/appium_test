@@ -68,3 +68,7 @@ class ApplicationRunner:
             self.wait = WebDriverWait(self.driver, 30)
             self.current_date = datetime.datetime.now()
             self.__app_runner = ApplicationRunner(self.driver)
+
+        def _repeat_key(self, key, count_of_repetitions: int):
+            for _ in range(count_of_repetitions):
+                self.driver.press_keycode(key)
