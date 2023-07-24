@@ -1,4 +1,15 @@
+import datetime
+
 import pika
+import json
+
+from sqlmodel import Session
+from appium import webdriver
+
+from parser import TrapAdvisorParser
+from database.models import Task
+from database.db import engine
+
 
 # RabbitMQ connection parameters
 rabbitmq_host = 'localhost'
@@ -8,16 +19,41 @@ rabbitmq_pass = 'guest'
 rabbitmq_virtual_host = '/'
 rabbitmq_queue_name = 'my_tasks_queue'
 
-# Callback function to process received tasks
+caps = {
+    "appium:automationName": "uiautomator2",
+    "platformName": "Android",
+    "appium:ensureWebviewsHavePages": True,
+    "appium:nativeWebScreenshot": True,
+    "appium:newCommandTimeout": 3600,
+    "appium:connectHardwareKeyboard": True,
+}
+
+driver = webdriver.Remote("http://localhost:4723", caps)
+trap_advisor_parser = TrapAdvisorParser(driver)
+date_format = '%Y-%m-%d'
+
 def process_task(ch, method, properties, body):
-    print(f"Received Task: {body.decode()}")
+    body_dict = json.loads(body.decode())
+    with Session(engine) as session:
+        found_task = session.get(Task, body_dict['task_id'])
+        found_task.status = 'in_progress'
+        session.add(found_task)
+        session.commit()
+    all_parsed_data = {body_dict['hotel_name']: []}
+    for date in body_dict['dates']:
+        parsed_data = trap_advisor_parser.parse_data(prompt=body_dict['hotel_name'],
+                                                     start_date=datetime.datetime.strptime(date['start_date'][:10], date_format),
+                                                     end_date=datetime.datetime.strptime(date['end_date'][:10], date_format))
+        all_parsed_data[body_dict['hotel_name']].append(parsed_data)
+    with Session(engine) as session:
+        found_task = session.get(Task, body_dict['task_id'])
+        found_task.result_body = str(all_parsed_data)
+        found_task.status = 'done'
+        session.add(found_task)
+        session.commit()
 
-    # Simulate task processing (you can replace this with your actual task processing logic)
-    import time
-    time.sleep(5)
-
-    # Acknowledge the message to RabbitMQ (mark it as processed)
     ch.basic_ack(delivery_tag=method.delivery_tag)
+
 
 # Create a connection to RabbitMQ server
 connection = pika.BlockingConnection(
