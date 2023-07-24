@@ -27,7 +27,9 @@ class ApplicationRunner:
         self.actions = ActionChains(self.driver)
 
     def go_to_app_list(self):
-        self.actions.w3c_actions = ActionBuilder(self.driver, mouse=PointerInput(interaction.POINTER_TOUCH, "touch"))
+        self.actions.w3c_actions = ActionBuilder(
+            self.driver, mouse=PointerInput(interaction.POINTER_TOUCH, "touch")
+        )
         self.actions.w3c_actions.pointer_action.move_to_location(441, 1335)
         self.actions.w3c_actions.pointer_action.pointer_down()
         self.actions.w3c_actions.pointer_action.move_to_location(540, 791)
@@ -35,15 +37,15 @@ class ApplicationRunner:
         self.actions.perform()
 
     def launch_application_from_app_list(self):
-        app = self.driver.find_element(MobileBy.XPATH, UiElements.trapadvisor_app_element)
+        app = self.driver.find_element(
+            MobileBy.XPATH, UiElements.trapadvisor_app_element
+        )
         app.click()
 
     def _click_if_exists(self, element_id: str):
         try:
             btn = self.wait.until(
-                EC.presence_of_element_located(
-                    (MobileBy.ID, element_id)
-                )
+                EC.presence_of_element_located((MobileBy.ID, element_id))
             )
             btn.click()
         except Exception:
@@ -194,9 +196,14 @@ class TrapAdvisorParser:
             except Exception:
                 price = "Not Available"
 
-            if provider_name in prices:  # verifying whether provider is already in prices dict
+            if (
+                provider_name in prices
+            ):  # verifying whether provider is already in prices dict
                 break
-            prices[provider_name] = {'price': price, 'screenshot_as_base64': focused_elem.screenshot_as_base64}
+            prices[provider_name] = {
+                "price": price,
+                "screenshot_as_base64": focused_elem.screenshot_as_base64,
+            }
         return prices
 
     def _get_needed_day_from_date_view(
@@ -294,7 +301,9 @@ class TrapAdvisorParser:
 
         self._repeat_key(Keys.tab, 3)  # Move selector to date view
 
-    def parse_data(self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime) -> dict[str, str]:
+    def parse_data(
+        self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime
+    ) -> dict[str, str]:
         self.go_to_search_page()
         self.search_for_prompt(prompt)
         self.click_on_second_found_option()
@@ -329,4 +338,3 @@ class TrapAdvisorParser:
 
     def __del__(self):
         self.driver.quit()
-
