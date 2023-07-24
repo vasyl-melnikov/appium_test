@@ -1,48 +1,84 @@
+import json
 import datetime
 
+import pika
+
+from enum import Enum
+
+from sqlmodel import Session
 from appium import webdriver
 
-from parser import TrapAdvisorParser, ApplicationRunner
+from parser import TrapAdvisorParser
+from database.models import Task
+from database.db import engine
+from config import settings
 
-date1 = datetime.datetime.now()
-date2 = datetime.datetime.now() + datetime.timedelta(days=3)
-date3 = datetime.datetime.now() + datetime.timedelta(days=27)
-date4 = datetime.datetime.now() + datetime.timedelta(days=27)
-date5 = datetime.datetime.now() + datetime.timedelta(days=33)
-date6 = datetime.datetime.now() + datetime.timedelta(days=34)
-date7 = datetime.datetime.now() + datetime.timedelta(days=43)
-date8 = datetime.datetime.now() + datetime.timedelta(days=44)
-date9 = datetime.datetime.now() + datetime.timedelta(days=44)
-date10 = datetime.datetime.now() + datetime.timedelta(days=75)
-date11 = datetime.datetime.now() - datetime.timedelta(days=3)
-date12 = datetime.datetime.now() - datetime.timedelta(days=75)
+
+class TaskStatus(Enum):
+    DONE = 'done'
+    PENDING = 'pending'
+
 
 caps = {
-    "appium:automationName": "uiautomator2",
-    "platformName": "Android",
-    "appium:ensureWebviewsHavePages": True,
-    "appium:nativeWebScreenshot": True,
-    "appium:newCommandTimeout": 3600,
-    "appium:connectHardwareKeyboard": True,
+    "appium:automationName": settings.appium_automation_name,
+    "platformName": settings.appium_platform_name,
+    "appium:ensureWebviewsHavePages": settings.appium_ensure_webviews_have_pages,
+    "appium:nativeWebScreenshot": settings.appium_native_web_screenshot,
+    "appium:newCommandTimeout": settings.appium_new_command_timeout,
+    "appium:connectHardwareKeyboard": settings.appium_connect_hardware_keyboard,
 }
 
-driver = webdriver.Remote("http://localhost:4723", caps)
-text_to_type = "The Grosvenor Hotel"
-# trap_advisor_parser = TrapAdvisorParser(driver)
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date1, end_date=date2))
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date3, end_date=date4))
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date5, end_date=date6))
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date7, end_date=date8))
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date9, end_date=date10))
-# print(trap_advisor_parser.parse(prompt=text_to_type, start_date=date11, end_date=date12))
-# print(date5, date6)
-# TrapAdvisorParser(driver).test_parse(start_date=date5, end_date=date6)
+driver = webdriver.Remote(f"http://{settings.appium_host}:{settings.appium_port}", caps)
+trap_advisor_parser = TrapAdvisorParser(driver)
+date_format = "%Y-%m-%d"
 
-# print(date1, date2)
-# TrapAdvisorParser(driver).test_parse(start_date=date1, end_date=date2)
 
-# print(date9, date10)
-# TrapAdvisorParser(driver).test_parse(start_date=date9, end_date=date10)
+def process_task(ch, method, properties, body):
+    body_dict = json.loads(body.decode())
 
-app_runner = ApplicationRunner(driver)
-app_runner.launch()
+    with Session(engine) as session:
+        found_task = session.get(Task, body_dict["task_id"])
+        found_task.status = TaskStatus.PENDING
+        session.add(found_task)
+        session.commit()
+
+    all_parsed_data = {body_dict["hotel_name"]: []}
+
+    for date in body_dict["dates"]:
+        parsed_data = trap_advisor_parser.parse_data(
+            prompt=body_dict["hotel_name"],
+            start_date=datetime.datetime.strptime(date["start_date"][:10], date_format),
+            end_date=datetime.datetime.strptime(date["end_date"][:10], date_format),
+        )
+        all_parsed_data[body_dict["hotel_name"]].append(parsed_data)
+
+    with Session(engine) as session:
+        found_task = session.get(Task, body_dict["task_id"])
+        found_task.result_body = str(all_parsed_data)
+        found_task.status = TaskStatus.DONE
+        session.add(found_task)
+        session.commit()
+
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+
+# Create a connection to RabbitMQ server
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters(
+        host=settings.rabbitmq_host,
+        port=settings.rabbitmq_port,
+        virtual_host=settings.rabbitmq_virtual_host,
+        credentials=pika.PlainCredentials(
+            settings.rabbitmq_user, settings.rabbitmq_pass
+        ),
+    )
+)
+channel = connection.channel()
+channel.queue_declare(queue=settings.rabbitmq_queue_name)
+channel.basic_qos(prefetch_count=1)
+channel.basic_consume(
+    queue=settings.rabbitmq_queue_name, on_message_callback=process_task
+)
+
+print("Waiting for tasks. To exit, press CTRL+C")
+channel.start_consuming()
