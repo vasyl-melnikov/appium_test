@@ -9,28 +9,21 @@ from appium import webdriver
 from parser import TrapAdvisorParser
 from database.models import Task
 from database.db import engine
-
-
-# RabbitMQ connection parameters
-rabbitmq_host = 'localhost'
-rabbitmq_port = 5672
-rabbitmq_user = 'guest'
-rabbitmq_pass = 'guest'
-rabbitmq_virtual_host = '/'
-rabbitmq_queue_name = 'my_tasks_queue'
+from config import settings
 
 caps = {
-    "appium:automationName": "uiautomator2",
-    "platformName": "Android",
-    "appium:ensureWebviewsHavePages": True,
-    "appium:nativeWebScreenshot": True,
-    "appium:newCommandTimeout": 3600,
-    "appium:connectHardwareKeyboard": True,
+    "appium:automationName": settings.appium_automation_name,
+    "platformName": settings.appium_platform_name,
+    "appium:ensureWebviewsHavePages": settings.appium_ensure_webviews_have_pages,
+    "appium:nativeWebScreenshot": settings.appium_native_web_screenshot,
+    "appium:newCommandTimeout": settings.appium_new_command_timeout,
+    "appium:connectHardwareKeyboard": settings.appium_connect_hardware_keyboard,
 }
 
-driver = webdriver.Remote("http://localhost:4723", caps)
+driver = webdriver.Remote(f"http://{settings.appium_host}:{settings.appium_port}", caps)
 trap_advisor_parser = TrapAdvisorParser(driver)
 date_format = '%Y-%m-%d'
+
 
 def process_task(ch, method, properties, body):
     body_dict = json.loads(body.decode())
@@ -58,25 +51,16 @@ def process_task(ch, method, properties, body):
 # Create a connection to RabbitMQ server
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(
-        host=rabbitmq_host,
-        port=rabbitmq_port,
-        virtual_host=rabbitmq_virtual_host,
-        credentials=pika.PlainCredentials(rabbitmq_user, rabbitmq_pass)
+        host=settings.rabbitmq_host,
+        port=settings.rabbitmq_port,
+        virtual_host=settings.rabbitmq_virtual_host,
+        credentials=pika.PlainCredentials(settings.rabbitmq_user, settings.rabbitmq_pass)
     )
 )
-
-# Create a channel
 channel = connection.channel()
-
-# Declare a queue (in case it does not exist)
-channel.queue_declare(queue=rabbitmq_queue_name)
-
-# Set the prefetch count to 1 (allowing only one unacknowledged message at a time)
+channel.queue_declare(queue=settings.rabbitmq_queue_name)
 channel.basic_qos(prefetch_count=1)
+channel.basic_consume(queue=settings.rabbitmq_queue_name, on_message_callback=process_task)
 
-# Set up a consumer to receive messages from the queue
-channel.basic_consume(queue=rabbitmq_queue_name, on_message_callback=process_task)
-
-# Start consuming messages
 print("Waiting for tasks. To exit, press CTRL+C")
 channel.start_consuming()

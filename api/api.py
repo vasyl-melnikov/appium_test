@@ -8,26 +8,20 @@ from pydantic import BaseModel
 
 from database.db import engine
 from database.models import Task
+from config import settings
 
 app = FastAPI()
 
-rabbitmq_host = 'localhost'
-rabbitmq_port = 5672
-rabbitmq_user = 'guest'
-rabbitmq_pass = 'guest'
-rabbitmq_virtual_host = '/'
-rabbitmq_queue_name = 'my_tasks_queue'
-
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(
-        host=rabbitmq_host,
-        port=rabbitmq_port,
-        virtual_host=rabbitmq_virtual_host,
-        credentials=pika.PlainCredentials(rabbitmq_user, rabbitmq_pass)
+        host=settings.rabbitmq_host,
+        port=settings.rabbitmq_port,
+        virtual_host=settings.rabbitmq_virtual_host,
+        credentials=pika.PlainCredentials(settings.rabbitmq_user, settings.rabbitmq_pass)
     )
 )
 channel = connection.channel()
-channel.queue_declare(queue=rabbitmq_queue_name)
+channel.queue_declare(queue=settings.rabbitmq_queue_name)
 
 
 class DateModel(BaseModel):
@@ -60,7 +54,7 @@ def create_task(task: TaskDtoModel):
         new_task_id = new_task.id
     channel.basic_publish(
         exchange='',
-        routing_key=rabbitmq_queue_name,
+        routing_key=settings.rabbitmq_queue_name,
         body=TaskModel(task_id=new_task_id, **task.dict()).json().encode('utf-8')
     )
 
