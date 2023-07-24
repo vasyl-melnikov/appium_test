@@ -23,7 +23,7 @@ from exceptions import NoDealsAvailableForDate, DateRangeIsNotAvailable, Invalid
 class ApplicationRunner:
     def __init__(self, driver: webdriver.Remote):
         self.driver = driver
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 3)
         self.actions = ActionChains(self.driver)
 
     def go_to_app_list(self):
@@ -164,17 +164,21 @@ class TrapAdvisorParser:
             raise NoDealsAvailableForDate
         btn.click()
 
-    def parse_prices(self) -> dict[str, str]:
+    def parse_prices(self) -> dict[str, dict]:
         time.sleep(10)  # sleeping 10s for data being loaded
         prices = {}
+        not_offer_obj_count = 0
 
         while True:
+            if not_offer_obj_count > 10:
+                raise NoDealsAvailableForDate
             self.driver.press_keycode(Keys.tab)
             focused_elem = self.driver.switch_to.active_element
             if (
                 focused_elem.get_attribute("resource-id")
                 != UiElements.hotel_offer_object
             ):
+                not_offer_obj_count += 1
                 continue
             try:
                 provider_name = focused_elem.find_element(
@@ -192,7 +196,7 @@ class TrapAdvisorParser:
 
             if provider_name in prices:  # verifying whether provider is already in prices dict
                 break
-            prices[provider_name] = price
+            prices[provider_name] = {'price': price, 'screenshot_as_base64': focused_elem.screenshot_as_base64}
         return prices
 
     def _get_needed_day_from_date_view(
@@ -304,18 +308,24 @@ class TrapAdvisorParser:
             prices = f"Such date range is not available {start_date} to {end_date}"
             self.confirm_date_range()
             self.reset_search_page()
-            return prices
+            return {f"{start_date} to {end_date}": prices}
 
         self.confirm_date_range()
         try:
             self.get_to_all_deals_page()
         except NoDealsAvailableForDate:
             prices = f"Deals for such date range are not available {start_date} to {end_date}"
-        else:
+            self.reset_search_page()
+            return {f"{start_date} to {end_date}": prices}
+
+        try:
             prices = self.parse_prices()
-            self.back_form_deals_page()
+        except NoDealsAvailableForDate:
+            prices = f"Deals for such date range are not available {start_date} to {end_date}"
+
+        self.back_form_deals_page()
         self.reset_search_page()
-        return prices
+        return {f"{start_date} to {end_date}": prices}
 
     def __del__(self):
         self.driver.quit()
