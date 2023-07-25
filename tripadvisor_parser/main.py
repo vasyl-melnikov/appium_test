@@ -1,5 +1,6 @@
 import json
 import datetime
+import logging
 
 import pika
 
@@ -12,6 +13,10 @@ from parser import TrapAdvisorParser
 from database.models import Task
 from database.db import engine
 from config import settings
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('trapadvisor-service')
 
 
 class TaskStatus(Enum):
@@ -29,18 +34,21 @@ caps = {
 }
 
 driver = webdriver.Remote(f"http://{settings.appium_host}:{settings.appium_port}", caps)
-trap_advisor_parser = TrapAdvisorParser(driver)
+trap_advisor_parser = TrapAdvisorParser(driver, logger)
 date_format = "%Y-%m-%d"
 
 
 def process_task(ch, method, properties, body):
     body_dict = json.loads(body.decode())
+    logger.info(f'Got task {body_dict["task_id"]}')
 
     with Session(engine) as session:
         found_task = session.get(Task, body_dict["task_id"])
         found_task.status = TaskStatus.PENDING.value
         session.add(found_task)
         session.commit()
+
+    logger.debug(f'Changed task status {body_dict["task_id"]} to {TaskStatus.PENDING.value}')
 
     all_parsed_data = {body_dict["hotel_name"]: []}
 
@@ -52,12 +60,16 @@ def process_task(ch, method, properties, body):
         )
         all_parsed_data[body_dict["hotel_name"]].append(parsed_data)
 
+    logger.info(f'Completed parsing for the task {body_dict["task_id"]} successfully')
+
     with Session(engine) as session:
         found_task = session.get(Task, body_dict["task_id"])
         found_task.result_body = str(all_parsed_data)
         found_task.status = TaskStatus.DONE.value
         session.add(found_task)
         session.commit()
+
+    logger.debug(f'Changed task status {body_dict["task_id"]} to {TaskStatus.DONE.value}')
 
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -80,5 +92,5 @@ channel.basic_consume(
     queue=settings.rabbitmq_queue_name, on_message_callback=process_task
 )
 
-print("Waiting for tasks. To exit, press CTRL+C")
+logger.info("Waiting for tasks. To exit, press CTRL+C")
 channel.start_consuming()
