@@ -1,3 +1,4 @@
+import logging
 import time
 import datetime
 import calendar
@@ -21,8 +22,9 @@ from exceptions import NoDealsAvailableForDate, DateRangeIsNotAvailable, Invalid
 
 
 class ApplicationRunner:
-    def __init__(self, driver: webdriver.Remote):
+    def __init__(self, driver: webdriver.Remote, logger: logging.Logger):
         self.driver = driver
+        self.logger = logger
         self.wait = WebDriverWait(self.driver, 3)
         self.actions = ActionChains(self.driver)
 
@@ -64,8 +66,12 @@ class ApplicationRunner:
         self._click_if_exists(UiElements.skip_page_btn)
 
     def launch(self):
+        self.logger.info("Starting application")
         self.go_to_app_list()
+        self.logger.debug("Going to app list")
         self.launch_application_from_app_list()
+        self.logger.debug("Launching application")
+        self.logger.info("Awaiting any login or startup pages to skip")
         self.skip_google_login_page()
         self.skip_login_page()
         self.skip_location_permission_page()
@@ -73,11 +79,12 @@ class ApplicationRunner:
 
 
 class TrapAdvisorParser:
-    def __init__(self, driver: webdriver.Remote):
+    def __init__(self, driver: webdriver.Remote, logger: logging.Logger):
         self.driver = driver
+        self.logger = logger
         self.wait = WebDriverWait(self.driver, 30)
         self.current_date = datetime.datetime.now()
-        self.__app_runner = ApplicationRunner(self.driver)
+        self.__app_runner = ApplicationRunner(self.driver, self.logger)
         self.__app_runner.launch()
 
     def _repeat_key(self, key, count_of_repetitions: int):
@@ -304,6 +311,7 @@ class TrapAdvisorParser:
     def parse_data(
         self, prompt: str, start_date: datetime.datetime, end_date: datetime.datetime
     ) -> dict[str, str]:
+        self.logger.info(f"Parsing data for {prompt} from {start_date} to {end_date}")
         self.go_to_search_page()
         self.search_for_prompt(prompt)
         self.click_on_second_found_option()
@@ -317,6 +325,8 @@ class TrapAdvisorParser:
             prices = f"Such date range is not available {start_date} to {end_date}"
             self.confirm_date_range()
             self.reset_search_page()
+            self.logger.info(f"Date range was not available for {prompt} from {start_date} to {end_date}")
+            self.logger.debug("Such date frame is not available on date range page")
             return {f"{start_date} to {end_date}": prices}
 
         self.confirm_date_range()
@@ -325,15 +335,20 @@ class TrapAdvisorParser:
         except NoDealsAvailableForDate:
             prices = f"Deals for such date range are not available {start_date} to {end_date}"
             self.reset_search_page()
+            self.logger.info(f"Deals for {prompt} from {start_date} to {end_date} are not available")
+            self.logger.debug("Deals page is not available to access")
             return {f"{start_date} to {end_date}": prices}
 
         try:
             prices = self.parse_prices()
         except NoDealsAvailableForDate:
+            self.logger.info(f"Deals for {prompt} from {start_date} to {end_date} are not available")
+            self.logger.debug("Deals page is available to access but no deals displayed")
             prices = f"Deals for such date range are not available {start_date} to {end_date}"
 
         self.back_form_deals_page()
         self.reset_search_page()
+        self.logger.info(f"Parsed prices successfully for {prompt} from {start_date} to {end_date}")
         return {f"{start_date} to {end_date}": prices}
 
     def __del__(self):
