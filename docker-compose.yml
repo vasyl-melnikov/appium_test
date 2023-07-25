@@ -1,0 +1,36 @@
+version: '3'
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  api:
+    build: ./api/
+    depends_on:
+      - rabbitmq
+      - postgres
+    ports:
+      - "8000:8000"
+
+  trap_advisor_parser:
+    build: ./tripadvisor_parser/
+    depends_on:
+      - rabbitmq
+      - postgres
+      - api
+    network_mode: "host"
+
+  postgres:
+    image: postgres
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
