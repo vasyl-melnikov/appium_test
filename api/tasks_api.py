@@ -3,12 +3,12 @@ import pika
 from enum import Enum
 
 from fastapi import APIRouter
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 
 from config import settings
 from database.db import engine
 from database.models import Task
-from api.dto import TaskModel, TaskDtoModel
+from dto import TaskModel, TaskDtoModel
 
 
 class TaskStatus(Enum):
@@ -36,10 +36,15 @@ def on_shutdown():
     connection.close()
 
 
+@router.on_event("startup")
+def on_startup():
+    SQLModel.metadata.create_all(engine)
+
+
 @router.post("/")
 def create_task(task: TaskDtoModel):
     with Session(engine) as session:
-        new_task = Task(status=TaskStatus.CREATED)
+        new_task = Task(status=TaskStatus.CREATED.value)
         session.add(new_task)
         session.commit()
         new_task_id = new_task.id
