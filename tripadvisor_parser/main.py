@@ -38,7 +38,7 @@ def process_task(ch, method, properties, body):
 
     with Session(engine) as session:
         found_task = session.get(Task, body_dict["task_id"])
-        found_task.status = TaskStatus.PENDING
+        found_task.status = TaskStatus.PENDING.value
         session.add(found_task)
         session.commit()
 
@@ -55,7 +55,7 @@ def process_task(ch, method, properties, body):
     with Session(engine) as session:
         found_task = session.get(Task, body_dict["task_id"])
         found_task.result_body = str(all_parsed_data)
-        found_task.status = TaskStatus.DONE
+        found_task.status = TaskStatus.DONE.value
         session.add(found_task)
         session.commit()
 
