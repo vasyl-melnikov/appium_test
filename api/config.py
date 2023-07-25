@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_port: str
     postgres_host: str
+    api_host: str
 
 
 settings = Settings()
