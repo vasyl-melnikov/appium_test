@@ -14,9 +14,5 @@ class Settings(BaseSettings):
     postgres_port: str
     postgres_host: str
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 settings = Settings()

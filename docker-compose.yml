@@ -5,12 +5,16 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    env_file:
+      - .env
 
   api:
     build: ./api/
     depends_on:
       - rabbitmq
       - postgres
+    env_file:
+      - .env
     ports:
       - "8000:8000"
 
@@ -20,6 +24,9 @@ services:
       - rabbitmq
       - postgres
       - api
+    env_file:
+      - .env
+      - .env_trapadvisor_parser
     network_mode: "host"
 
   postgres:
